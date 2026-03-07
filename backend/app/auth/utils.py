@@ -1,4 +1,5 @@
 from passlib.context import CryptContext
+from fastapi import Depends,HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
 from datetime import timedelta, datetime
@@ -54,6 +55,19 @@ def is_valid_reset_token(raw_token: str, token_hash: Optional[str], expires_at: 
    return secrets.compare_digest(hash_token(raw_token), token_hash)
 
 
-   
+
+def get_current_user(token: str = Depends(OAuth2_scheme)):
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload.get("user_id")
+
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        return user_id
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token is invalid")   
 
 

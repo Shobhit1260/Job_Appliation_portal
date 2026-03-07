@@ -68,7 +68,7 @@ class Application(Base):
     location=Column(String,nullable=False)
     job_description=Column(String,nullable=True)
     job_description_embedding=Column(Text,nullable=True)
-    salary_mentioned=Column(Text,nullable=True)
+    salary_mentioned=Column(Integer,nullable=True)
     is_remote=Column(Boolean,default=False)
     notes=Column(Text,nullable=True)
     skills_I_mentioned=Column(JSONB,nullable=True)

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-
+from datetime import datetime
 
 class Create_user(BaseModel):
     name: str
@@ -19,3 +19,6 @@ class ForgotPassword(BaseModel):
 class ResetPassword(BaseModel):
     token: str
     new_password: str
+
+
+    

@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import models,schema
+from app import models
+from app.schemas import auth
 from app.auth import utils
 from datetime import timedelta
 
 router = APIRouter()
 
 @router.post("/register")
-def register(user: schema.Create_user, db: Session = Depends(get_db)):
+def register(user: auth.Create_user, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists.")
@@ -25,7 +26,7 @@ def register(user: schema.Create_user, db: Session = Depends(get_db)):
     return {"message": "User created successfully"}
 
 @router.post("/login")
-def login(user:schema.Login_user, db: Session = Depends(get_db)):
+def login(user:auth.Login_user, db: Session = Depends(get_db)):
     email=user.email
     db_user=db.query(models.User).filter(models.User.email == email).first()
     if not db_user:
@@ -46,7 +47,7 @@ def login(user:schema.Login_user, db: Session = Depends(get_db)):
     }
 
 @router.post("/forgot-password")
-def forget_password(data:schema.ForgotPassword,db: Session=Depends(get_db)):
+def forget_password(data:auth.ForgotPassword,db: Session=Depends(get_db)):
     existing_user=db.query(models.User).filter(models.User.email==data.email).first()
     
 
@@ -69,7 +70,7 @@ def forget_password(data:schema.ForgotPassword,db: Session=Depends(get_db)):
 
 
 @router.post("/reset-password")
-def reset_password(payload: schema.ResetPassword, db: Session = Depends(get_db)):
+def reset_password(payload: auth.ResetPassword, db: Session = Depends(get_db)):
     token_hash = utils.hash_token(payload.token)
     existing_user = db.query(models.User).filter(models.User.reset_token_hash == token_hash).first()
 
