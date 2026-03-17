@@ -17,8 +17,8 @@ class User(Base):
     reset_token_expires_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     preferences = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now, nullable=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     resumes = relationship("Resume", back_populates="user", cascade="all, delete")
     applications = relationship("Application", back_populates="user", cascade="all, delete")
@@ -39,11 +39,11 @@ class Resume(Base):
     tags=Column(JSONB, nullable=True)
     skills_claimed=Column(JSONB,nullable=True)
     diff_from_prev=Column(Text,nullable=True)
-    created_at=Column(DateTime,default=datetime.utcnow,nullable=False)
-    updated_at=Column(DateTime, default=datetime.utcnow,onupdate=datetime.utcnow,nullable=False)
+    created_at=Column(DateTime,default=datetime.now,nullable=False)
+    updated_at=Column(DateTime, default=datetime.now,onupdate=datetime.utcnow,nullable=False)
 
     user=relationship("User",back_populates='resumes')
-    applications=relationship("Application", back_populates="applications")
+    applications=relationship("Application", back_populates="resume")
 
     #unique constaint:
     __table_args__=(
@@ -63,8 +63,8 @@ class Application(Base):
     role=Column(String,nullable=False)
     portal=Column(String,nullable=False)
     job_title=Column(Text,nullable=False) 
-    status=Column(JSONB,nullable=False,default=lambda: {"status": "applied"})
-    applied_at=Column(DateTime,default=datetime.utcnow,nullable=True) 
+    status=Column(String,nullable=False,default="applied")
+    applied_at=Column(DateTime,default=datetime.now,nullable=True) 
     location=Column(String,nullable=False)
     job_description=Column(String,nullable=True)
     job_description_embedding=Column(Text,nullable=True)
@@ -72,16 +72,15 @@ class Application(Base):
     is_remote=Column(Boolean,default=False)
     notes=Column(Text,nullable=True)
     skills_I_mentioned=Column(JSONB,nullable=True)
-    created_at=Column(DateTime,default=datetime.utcnow,nullable=False)
-    updated_at=Column(DateTime, default=datetime.utcnow,onupdate=datetime.utcnow,nullable=False)
+    created_at=Column(DateTime,default=datetime.now,nullable=False)
+    updated_at=Column(DateTime, default=datetime.now,onupdate=datetime.utcnow,nullable=False)
 
     user=relationship("User",back_populates="applications")
     resume=relationship("Resume", back_populates='applications')
     screening_answers=relationship("ScreeningAnswer",back_populates='application',cascade="all, delete")
     timeline_events=relationship("TimelineEvent",back_populates="application",cascade="all, delete")
     reminders=relationship("Reminder",back_populates="application",cascade="all, delete")
-    interview_prep=relationship("Interview",back_populates="application",cascade="all, delete")
-
+    interview_preps=relationship("InterviewPrep",back_populates="application",cascade="all, delete")
     __table_args__=(
         Index("idx_user_status","user_id","status"),
         Index("idx_user_company","user_id","company_name")
@@ -95,7 +94,7 @@ class ScreeningAnswer(Base):
     question=Column(Text,nullable=False)
     answer=Column(Text,nullable=False)
     question_type=Column(String,nullable=True)
-    created_at=Column(DateTime,default=datetime.now(),nullable=False)
+    created_at=Column(DateTime,default=datetime.now,nullable=False)
 
     application=relationship("Application",back_populates="screening_answers")
 
@@ -109,7 +108,7 @@ class TimelineEvent(Base):
     event_type=Column(String,nullable=False)
     title=Column(Text,nullable=False)
     metadataa=Column(JSONB,nullable=True)
-    event_at=Column(DateTime,default=datetime.utcnow,nullable=False)
+    event_at=Column(DateTime,default=datetime.now,nullable=False)
 
     application=relationship("Application",back_populates="timeline_events")
 
@@ -127,7 +126,7 @@ class Reminder(Base):
     description=Column(Text,nullable=True)
     remind_at=Column(DateTime,nullable=False)
     is_sent=Column(Boolean,default=False,nullable=False)
-    created_at=Column(DateTime,default=datetime.utcnow,nullable=False)
+    created_at=Column(DateTime,default=datetime.now,nullable=False)
 
     user=relationship("User",back_populates="reminders")
     application=relationship("Application",back_populates="reminders")
@@ -162,7 +161,7 @@ class InterviewPrep(Base):
 
     created_at = Column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=datetime.now,
         nullable=False
     )
 
@@ -176,4 +175,6 @@ class InterviewPrep(Base):
     __table_args__ = (
         Index("idx_interviewprep_application", "application_id"),
     )
+
+
 

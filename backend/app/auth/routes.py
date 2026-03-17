@@ -29,6 +29,7 @@ def register(user: auth.Create_user, db: Session = Depends(get_db)):
 def login(user:auth.Login_user, db: Session = Depends(get_db)):
     email=user.email
     db_user=db.query(models.User).filter(models.User.email == email).first()
+    
     if not db_user:
         raise HTTPException(status_code=401,detail="Invalid email or password")
     
@@ -36,8 +37,11 @@ def login(user:auth.Login_user, db: Session = Depends(get_db)):
 
     if not pw:
         raise HTTPException(status_code=401,detail="Invalid email or Password")
-    
-    access_token=utils.create_access_token({"email": db_user.email},expire_delta=timedelta(minutes=30))
+    access_token = utils.create_access_token(
+        {"user_id": str(db_user.id)},
+        expire_delta=timedelta(minutes=30)
+        
+    )
 
     return {
         "access_token":access_token,
