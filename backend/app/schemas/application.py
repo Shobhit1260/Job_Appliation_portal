@@ -1,7 +1,9 @@
-from typing import Literal
-from pydantic import BaseModel, constr, field_validator
+from typing import Any, Literal
+from pydantic import BaseModel, Field, constr, field_validator
 from datetime import datetime
 from uuid import UUID
+
+from sqlalchemy import Text
 
 VALID_STATUSES = [
     "saved", "applied", "screening",
@@ -31,6 +33,7 @@ class UpdatedApplication(BaseModel):
     role:str|None=None
     portal:str|None=None
     job_title:str|None=None
+    title:str|None=None
     status: str|None=None
     location:str|None=None
     job_description:str|None=None
@@ -50,7 +53,7 @@ class ApplicationResponse(BaseModel):
     role: str
     status: str
     notes: str|None=None
-    salary_mentioned: str|None
+    salary_mentioned: int|None
     portal: str|None=None
     created_at: datetime
     updated_at: datetime
@@ -63,4 +66,13 @@ class CreateScreeningAnswer(BaseModel):
     answer: constr(strip_whitespace=True, min_length=1)   # type: ignore
     question_type: Literal["text", "mcq", "rating"] = "text"
 
+class TimelineEventResponse(BaseModel):
+    id: UUID
+    event_type: str
+    metadata: dict[str, Any] | None = Field(alias="metadataa")
+    event_at: datetime
+
+    class Config:
+        from_attributes = True    
+        populate_by_name = True
 

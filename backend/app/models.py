@@ -103,12 +103,12 @@ class ScreeningAnswer(Base):
 class TimelineEvent(Base):
     __tablename__="timeline_events"
 
-    id=Column(UUID(as_uuid=True),nullable=False,primary_key=True)
+    id=Column(UUID(as_uuid=True),default=uuid.uuid4,primary_key=True)
     application_id=Column(UUID(as_uuid=True),ForeignKey("applications.id" ,ondelete="CASCADE"),nullable=False)
     event_type=Column(String,nullable=False)
-    title=Column(Text,nullable=False)
+    title=Column(Text,nullable=True)
     metadataa=Column(JSONB,nullable=True)
-    event_at=Column(DateTime,default=datetime.now,nullable=False)
+    event_at=Column(DateTime,default=datetime.utcnow,nullable=False)
 
     application=relationship("Application",back_populates="timeline_events")
 

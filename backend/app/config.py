@@ -1,5 +1,10 @@
-from pydantic_settings import BaseSettings
-from typing import List
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / ".env"
 
 
 class Settings(BaseSettings):
@@ -31,16 +36,23 @@ class Settings(BaseSettings):
     ALLOW_METHODS: str = "*"
     ALLOW_HEADERS: str = "*"
 
+    # AWS S3
+    AWS_REGION: str
+    S3_BUCKET_NAME: str
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_SESSION_TOKEN: Optional[str] = None
+
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE,
+        case_sensitive=True,
+        extra="ignore",
+    )
+
     
     @property
     def cors_origins(self) -> List[str]:
         """Convert comma-separated origins to list"""
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore extra fields in .env that aren't defined here
-
-
 settings = Settings()

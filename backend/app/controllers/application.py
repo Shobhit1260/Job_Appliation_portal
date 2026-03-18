@@ -8,6 +8,7 @@ from app.auth import utils
 from app.models import Application,ScreeningAnswer,TimelineEvent
 from sqlalchemy import or_
 from uuid import UUID
+from app.schemas.application import TimelineEventResponse
 
 router=APIRouter()
 
@@ -64,7 +65,7 @@ def getallApplication(
         "page_size": page_size
     }  
 
-@router.post("/getallApplication/{id}") 
+@router.get("/getApplication/{id}") 
 def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)):
     application = (
     db.query(Application)
@@ -72,7 +73,6 @@ def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.
         selectinload(Application.screening_answers),
         selectinload(Application.timeline_events),
         selectinload(Application.reminders),
-        selectinload(Application.interview_prep),
         selectinload(Application.resume),
     )
     .filter(
@@ -89,7 +89,7 @@ def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.
     return application
 
 
-@router.patch("/api/v1/applications/{id}", response_model=application.ApplicationResponse)
+@router.patch("/update_application/{id}", response_model=application.ApplicationResponse)
 def update_application(
     id: UUID,
     payload: application.UpdatedApplication, # type: ignore
@@ -100,7 +100,7 @@ def update_application(
         db.query(Application)
         .filter(
             Application.id == id,
-            Application.user_id == current_user.id
+            Application.user_id == current_user
         )
         .first()
     )
@@ -119,6 +119,7 @@ def update_application(
         timeline_event = models.TimelineEvent(
             application_id=application.id,
             event_type="status_changed",
+            title=payload.title,
             metadata={
                 "from": old_status,
                 "to": update_data["status"]
@@ -127,13 +128,13 @@ def update_application(
         db.add(timeline_event)
 
     application.updated_at = datetime.utcnow()
-
+    db.add(application)
     db.commit()
     db.refresh(application)
 
     return application
 
-@router.delete("/applications/{id}")
+@router.delete("/delete_application/{id}")
 def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depends(utils.get_current_user)):
    application=db.query(Application).filter(
       Application.id==id,
@@ -145,10 +146,12 @@ def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depends(uti
    db.delete(application)
 
    db.commit() 
-   return
+   return{
+      "message":"Application successfully deleted."
+   }
 
 @router.post("/applications/{id}/screening-answers")
-def ScreeningAnswer(
+def Screening_Answer(
    id:UUID,
    payload:application.CreateScreeningAnswer,
    db:Session=Depends(get_db),
@@ -167,13 +170,13 @@ def ScreeningAnswer(
    )
    db.add(new_ques_ans)
    db.commit() 
-   db.refresh()
+   db.refresh(new_ques_ans)
    return{
         "message": "Answer saved",
         "id": new_ques_ans.id
     }
 
-@router.get("/gettimeline")
+@router.get("/gettimeline/{id}")
 def GetTimeline(
    id:UUID,
    db:Session=Depends(get_db),
@@ -191,23 +194,13 @@ def GetTimeline(
      db.query(TimelineEvent)
      .filter(TimelineEvent.application_id==id)
      .order_by(TimelineEvent.event_at.asc())
-     .all
-   )  
+     .all()
+   ) 
+   print(events) 
 
    return {
-        "events": [
-            {
-                "id": event.id,
-                "event_type": event.event_type,
-                "title": event.title,
-                "description": event.description,
-                "metadata": event.metadata,
-                "event_at": event.event_at
-            }
-            for event in events
-        ]
-   }     
-           
+    "events": [TimelineEventResponse.from_orm(event) for event in events]
+   }      
 
     
   

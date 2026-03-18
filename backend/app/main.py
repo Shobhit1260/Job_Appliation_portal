@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.auth.routes import router as auth_router
 from app.controllers.application import router as application_router
+from app.controllers.resume import router as resume_router
+
 from app.config import settings
 
 app = FastAPI(
@@ -22,3 +24,4 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(application_router,prefix="/application",tags=["application"])
+app.include_router(resume_router,prefix="/resume",tags=["resume"])
