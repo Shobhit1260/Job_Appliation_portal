@@ -19,10 +19,8 @@ def _create_s3_client():
 
     return boto3.client("s3", **client_kwargs)
 
-print(settings.AWS_ACCESS_KEY_ID)
-print(settings.AWS_SECRET_ACCESS_KEY)
+
 s3 = _create_s3_client()
-print(s3.list_buckets())
 
 def generate_upload_url(key: str):
     try:

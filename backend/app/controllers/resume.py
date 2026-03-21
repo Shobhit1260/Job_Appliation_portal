@@ -5,6 +5,8 @@ from app.auth.utils import get_current_user
 from app.Utils.s3Config import generate_upload_url,generate_download_url,s3,BUCKET
 from app.models import Resume
 import uuid 
+import hashlib, json
+from sqlalchemy import func
 from app.schemas.resume import ResumeConfirmRequest
 router=APIRouter()
 
@@ -26,17 +28,17 @@ def get_upload_url(
         "file_key": key
     }
 
-@router.post("/resumes")
+@router.post("/confirm_upload")
 def confirm_upload(
     data:ResumeConfirmRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    import hashlib, json
-    from sqlalchemy import func
+    
 
     # 1. Get file from S3
     obj = s3.get_object(Bucket=BUCKET, Key=data.file_key)
+    print("object",obj)
     file_bytes = obj["Body"].read()
 
     # 2. Validate PDF
@@ -65,13 +67,13 @@ def confirm_upload(
     version = (max_version or 0) + 1
 
     # 6. Save DB
-    file_url = f"https://{BUCKET}.s3.amazonaws.com/{data.file_key}"
-
+    file_path = data.file_key
+ 
     resume = Resume(
         user_id=current_user,
         version=version,
         label=data.label,
-        file_path=file_url,
+        file_path=file_path,
         file_hash=file_hash,
         file_size_kb=len(file_bytes) // 1024,
         commit_message=data.commit_message,
@@ -84,9 +86,11 @@ def confirm_upload(
 
     return {
         "id": str(resume.id),
+        "user_id": current_user,
         "version": version,
         "label": data.label,
         "file_hash": file_hash,
+        "file_path":file_path,
         "file_size_kb": resume.file_size_kb,
         "tags": resume.tags,
         "created_at": resume.created_at
@@ -106,6 +110,7 @@ def list_resumes(
         "resumes": [
             {
                 "id": str(r.id),
+                "user_id":current_user,
                 "version": r.version,
                 "label": r.label,
                 "commit_message": r.commit_message,
@@ -125,18 +130,17 @@ def get_resume(
     current_user:str=Depends(get_current_user)
 ):
     resume = (db.query(Resume)
-              .filter(Resume.id==id)
+              .filter(Resume.id==id,
+                      Resume.user_id==current_user)
               .first())
-
+    print("resume",resume)
     if not resume:
         raise HTTPException(404, "Not found")
 
-    if resume.user_id != current_user:
-        raise HTTPException(403, "Forbidden")
-
+    
     # Extract key from URL
     key = resume.file_path.split(".com/")[1]
-
+    
     download_url = generate_download_url(key)
 
     return {
@@ -153,20 +157,18 @@ def get_resume(
         "download_url": download_url  
     }
 
-@router.delete("/resumes/{id}", status_code=204)
+@router.delete("/delete_resume/{id}", status_code=204)
 def delete_resume(
     id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    resume = db.query(Resume).filter_by(id=id).first()
+    resume = (db.query(Resume).filter(id==id).first())
 
     if not resume:
         raise HTTPException(404, "Not found")
 
-    if resume.user_id != current_user.id:
-        raise HTTPException(403, "Forbidden")
-
+   
     # Extract key
     key = resume.file_path.split(".com/")[1]
 
@@ -175,3 +177,7 @@ def delete_resume(
 
     db.delete(resume)
     db.commit()
+
+    return {
+        "message":"Resume deleted successfully."
+    }
