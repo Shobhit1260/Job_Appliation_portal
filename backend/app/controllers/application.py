@@ -9,11 +9,12 @@ from app.models import Application,ScreeningAnswer,TimelineEvent
 from sqlalchemy import or_
 from uuid import UUID
 from app.schemas.application import TimelineEventResponse
+from app.cache_utils import cache_endpoint, invalidate_cache
 
 router=APIRouter()
 
 @router.post("/create_application")
-def create_application(data:application.CreateApplication,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)): # type: ignore
+async def create_application(data:application.CreateApplication,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)): # type: ignore
   try:
     new_application=Application(
         user_id=user,
@@ -22,13 +23,18 @@ def create_application(data:application.CreateApplication,db:Session=Depends(get
     db.add(new_application)
     db.commit()
     db.refresh(new_application)
+    
+    # Invalidate user's application list cache when new application is created
+    await invalidate_cache(pattern=f"applications:list:{user}:*")
+    
     return new_application
   except Exception as e:
     raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/getallApplication")
-def getallApplication(
+@cache_endpoint(prefix="applications:list", ttl=1800)  # Cache for 30 minutes
+async def getallApplication(
   status:str|None=Query(None),
   portal:str|None=Query(None),
   search:str|None=Query(None),
@@ -66,7 +72,8 @@ def getallApplication(
     }  
 
 @router.get("/getApplication/{id}") 
-def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)):
+@cache_endpoint(prefix="applications:single", ttl=3600)  # Cache single app for 1 hour
+async def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)):
     application = (
     db.query(Application)
     .options(
@@ -82,15 +89,14 @@ def singleApplication(id:UUID,db:Session=Depends(get_db),user:str=Depends(utils.
     .first()
     )
     if not application:
-      raise Exception(status=404,detail="Application not found")
-    if not user:
-      raise Exception(status=403,detail="Not authorized")
+      raise HTTPException(status=404,detail="Application not found")
+    
     
     return application
 
 
 @router.patch("/update_application/{id}", response_model=application.ApplicationResponse)
-def update_application(
+async def update_application(
     id: UUID,
     payload: application.UpdatedApplication, # type: ignore
     db: Session = Depends(get_db),
@@ -131,11 +137,15 @@ def update_application(
     db.add(application)
     db.commit()
     db.refresh(application)
+    
+    # Invalidate related caches when application is updated
+    await invalidate_cache(pattern=f"applications:list:{current_user}:*")  # List cache
+    await invalidate_cache(key=f"applications:single:{id}")  # Single app cache
 
     return application
 
 @router.delete("/delete_application/{id}")
-def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depends(utils.get_current_user)):
+async def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depends(utils.get_current_user)):
    application=db.query(Application).filter(
       Application.id==id,
       Application.user_id==user_id
@@ -144,14 +154,18 @@ def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depends(uti
         raise HTTPException(status_code=404, detail="Application not found")
 
    db.delete(application)
-
    db.commit() 
+   
+   # Invalidate caches when application is deleted
+   await invalidate_cache(pattern=f"applications:list:{user_id}:*")  # List cache
+   await invalidate_cache(key=f"applications:single:{id}")  # Single app cache
+   
    return{
       "message":"Application successfully deleted."
    }
 
 @router.post("/applications/{id}/screening-answers")
-def Screening_Answer(
+async def Screening_Answer(
    id:UUID,
    payload:application.CreateScreeningAnswer,
    db:Session=Depends(get_db),
@@ -171,13 +185,18 @@ def Screening_Answer(
    db.add(new_ques_ans)
    db.commit() 
    db.refresh(new_ques_ans)
+   
+   # Invalidate single application cache when screening answers are added
+   await invalidate_cache(key=f"applications:single:{id}")
+   
    return{
         "message": "Answer saved",
         "id": new_ques_ans.id
     }
 
 @router.get("/gettimeline/{id}")
-def GetTimeline(
+@cache_endpoint(prefix="applications:timeline", ttl=1800)  # Cache timeline for 30 min
+async def GetTimeline(
    id:UUID,
    db:Session=Depends(get_db),
    user_id:str=Depends(utils.get_current_user)

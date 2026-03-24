@@ -80,3 +80,62 @@ backend/
 - Change the default `SECRET_KEY` in production
 - Use strong database passwords
 - Update `ALLOWED_ORIGINS` to match your frontend domain in production
+
+## Containerized Run (Local)
+
+Use Docker Compose to run API + PostgreSQL + Redis together:
+
+```bash
+docker compose up --build -d
+```
+
+Check health:
+
+```bash
+curl http://localhost:8000/healthz
+```
+
+Stop stack:
+
+```bash
+docker compose down
+```
+
+## CI Pipeline
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
+
+- Lint: critical Ruff checks
+- Tests: `pytest backend/tests`
+- Container build smoke check
+
+This runs on pull requests and pushes to `main` for backend changes.
+
+## CD Pipeline (AWS)
+
+GitHub Actions workflow (`.github/workflows/cd.yml`) performs:
+
+1. Build and push image to Amazon ECR.
+2. Deploy to ECS staging service.
+3. Run staging smoke test.
+4. Optional manual promotion to ECS production service.
+5. Run production smoke test.
+
+Deployment includes explicit migration execution via:
+
+```bash
+alembic upgrade head
+```
+
+## Production Environment Template
+
+Use `backend/.env.production.example` as the starting point for production secrets.
+
+## Full Guide
+
+Read `backend/docs/PRODUCTION_CICD_GUIDE.md` for:
+
+- Required secrets setup
+- AWS staging/production deployment flow
+- Extension roadmap
+- Interview explanation script

@@ -8,6 +8,7 @@ import uuid
 import hashlib, json
 from sqlalchemy import func
 from app.schemas.resume import ResumeConfirmRequest
+from app.cache_utils import cache_endpoint, invalidate_cache
 router=APIRouter()
 
 
@@ -29,7 +30,7 @@ def get_upload_url(
     }
 
 @router.post("/confirm_upload")
-def confirm_upload(
+async def confirm_upload(
     data:ResumeConfirmRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -84,6 +85,9 @@ def confirm_upload(
     db.commit()
     db.refresh(resume)
 
+    # Invalidate resume list cache when new resume is uploaded
+    await invalidate_cache(pattern=f"resume:list:{current_user}:*")
+
     return {
         "id": str(resume.id),
         "user_id": current_user,
@@ -97,7 +101,8 @@ def confirm_upload(
     }
 
 @router.get("/resumes")
-def list_resumes(
+@cache_endpoint(prefix="resume:list", ttl=1800)  # Cache for 30 minutes
+async def list_resumes(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -124,7 +129,8 @@ def list_resumes(
     }
 
 @router.get("/get_resume/{id}")
-def get_resume(
+@cache_endpoint(prefix="resume:single", ttl=3600)  # Cache for 1 hour
+async def get_resume(
     id: str,
     db: Session = Depends(get_db),
     current_user:str=Depends(get_current_user)
@@ -158,7 +164,7 @@ def get_resume(
     }
 
 @router.delete("/delete_resume/{id}", status_code=204)
-def delete_resume(
+async def delete_resume(
     id: str,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -177,6 +183,10 @@ def delete_resume(
 
     db.delete(resume)
     db.commit()
+
+    # Invalidate resume caches when resume is deleted
+    await invalidate_cache(pattern=f"resume:list:{current_user}:*")
+    await invalidate_cache(key=f"resume:single:{id}")
 
     return {
         "message":"Resume deleted successfully."

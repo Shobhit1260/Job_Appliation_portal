@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_SESSION_TOKEN: Optional[str] = None
 
+    # Redis Caching
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
+    CACHE_TTL_SECONDS: int = 3600  # 1 hour default TTL
+    ENABLE_CACHING: bool = True
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         case_sensitive=True,

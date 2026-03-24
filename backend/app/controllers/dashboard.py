@@ -6,12 +6,14 @@ from datetime import datetime, timedelta
 from app.database import get_db
 from app.auth.utils import get_current_user
 from app.models import Application
+from app.cache_utils import cache_endpoint, invalidate_cache
 
 
 router=APIRouter()
 
 @router.get("/get_dashboard")
-def get_dashboard(
+@cache_endpoint(prefix="dashboard:summary", ttl=600)  # Cache for 10 minutes (stats update relatively)
+async def get_dashboard(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):

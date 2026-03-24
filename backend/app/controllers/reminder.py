@@ -8,11 +8,12 @@ from app.auth import utils
 from app.models import Application, Reminder,ScreeningAnswer,TimelineEvent
 from sqlalchemy import or_
 from uuid import UUID
+from app.cache_utils import cache_endpoint, invalidate_cache
 
 router=APIRouter()
 
 @router.post("/create_reminder")
-def create_reminder(data: reminder.CreateReminder, user=Depends(utils.get_current_user), db: Session = Depends(get_db)):
+async def create_reminder(data: reminder.CreateReminder, user=Depends(utils.get_current_user), db: Session = Depends(get_db)):
 
     if data.remind_at <= datetime.utcnow():
         raise HTTPException(status_code=422, detail="remind_at must be in the future")
@@ -38,11 +39,15 @@ def create_reminder(data: reminder.CreateReminder, user=Depends(utils.get_curren
     db.commit()
     db.refresh(reminder)
 
+    # Invalidate reminder list cache when new reminder is created
+    await invalidate_cache(pattern=f"reminder:list:{user}:*")
+
     return reminder
 
 
 @router.get("/reminders")
-def list_reminders(
+@cache_endpoint(prefix="reminder:list", ttl=900)  # Cache for 15 minutes (reminders time-sensitive)
+async def list_reminders(
     is_sent: bool | None = None,
     application_id: UUID | None = None,
     user=Depends(utils.get_current_user),
