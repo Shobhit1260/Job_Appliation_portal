@@ -71,7 +71,7 @@ jobs:
 
             APP_DIR="${{ secrets.EC2_APP_DIR }}"
             if [ -z "$APP_DIR" ]; then
-              APP_DIR="/home/ubuntu/job_tracker"
+              APP_DIR="/home/ubuntu/Job_Appliation_portal"
             fi
 
             cd "$APP_DIR/backend"
