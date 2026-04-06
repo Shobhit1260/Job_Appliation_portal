@@ -111,20 +111,29 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
 
 This runs on pull requests and pushes to `main` for backend changes.
 
-## CD Pipeline (AWS)
+## CD Pipeline (EC2 + Docker Hub)
 
-GitHub Actions workflow (`.github/workflows/cd.yml`) performs:
+GitHub Actions workflow (`.github/workflows/deploy-ec2-dockerhub.yml`) performs:
 
-1. Build and push image to Amazon ECR.
-2. Deploy to ECS staging service.
-3. Run staging smoke test.
-4. Optional manual promotion to ECS production service.
-5. Run production smoke test.
+1. Build backend image from `backend/Dockerfile`.
+2. Push image to Docker Hub with `latest` and commit SHA tags.
+3. SSH into EC2.
+4. Pull and restart API using compose override (`docker-compose.ec2.yml`).
+5. Run `/healthz` smoke check.
 
-Deployment includes explicit migration execution via:
+Required GitHub repository secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
+- `EC2_HOST`
+- `EC2_USER`
+- `EC2_SSH_PRIVATE_KEY`
+- `EC2_APP_DIR` (optional; defaults to `/home/ubuntu/job_tracker`)
+
+On EC2, deploy with:
 
 ```bash
-alembic upgrade head
+docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-build
 ```
 
 ## Production Environment Template
@@ -133,9 +142,4 @@ Use `backend/.env.production.example` as the starting point for production secre
 
 ## Full Guide
 
-Read `backend/docs/PRODUCTION_CICD_GUIDE.md` for:
-
-- Required secrets setup
-- AWS staging/production deployment flow
-- Extension roadmap
-- Interview explanation script
+Use this workflow as your baseline and extend with rollback tags, reverse proxy, and HTTPS when moving to production.
