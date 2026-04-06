@@ -82,8 +82,22 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           source: "backend/docker-compose.yml,backend/docker-compose.ec2.yml"
-          target: ${{ env.EC2_APP_DIR }}
+          target: ${{ env.EC2_APP_DIR }}/backend
           strip_components: 1
+
+      - name: Verify compose files on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ env.EC2_APP_DIR }}"
+            ls -la "$APP_DIR/backend"
+            test -f "$APP_DIR/backend/docker-compose.yml"
+            test -f "$APP_DIR/backend/docker-compose.ec2.yml"
 
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.2.0
