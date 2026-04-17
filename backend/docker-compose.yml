@@ -2,6 +2,13 @@
 
 
 services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: jobtracker-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   postgres:
     image: postgres:16-alpine
     container_name: jobtracker-postgres
@@ -46,6 +53,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@postgres:${DB_PORT}/${DB_NAME}
       DB_HOST: postgres
@@ -58,6 +67,12 @@ services:
       REDIS_DB: ${REDIS_DB:-0}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       ENABLE_CACHING: ${ENABLE_CACHING:-True}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM_EMAIL: noreply@jobtracker.local
+      SMTP_FROM_NAME: Job Tracker
+      SMTP_USE_TLS: "False"
+      SMTP_USE_SSL: "False"
       RUN_MIGRATIONS: "false"
     ports:
       - "8000:8000"

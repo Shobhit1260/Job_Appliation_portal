@@ -24,8 +24,9 @@ async def create_application(data:application.CreateApplication,db:Session=Depen
     db.commit()
     db.refresh(new_application)
     
-    # Invalidate user's application list cache when new application is created
+    # Invalidate user's application list cache and dashboard when new application is created
     await invalidate_cache(pattern=f"applications:list:{user}:*")
+    await invalidate_cache(pattern=f"dashboard:summary:{user}:*")
     
     return new_application
   except Exception as e:
@@ -141,6 +142,7 @@ async def update_application(
     # Invalidate related caches when application is updated
     await invalidate_cache(pattern=f"applications:list:{current_user}:*")  # List cache
     await invalidate_cache(key=f"applications:single:{id}")  # Single app cache
+    await invalidate_cache(pattern=f"dashboard:summary:{current_user}:*")  # Dashboard cache
 
     return application
 
@@ -159,6 +161,7 @@ async def deleteApplication(id:UUID,db:Session=Depends(get_db),user_id:str=Depen
    # Invalidate caches when application is deleted
    await invalidate_cache(pattern=f"applications:list:{user_id}:*")  # List cache
    await invalidate_cache(key=f"applications:single:{id}")  # Single app cache
+   await invalidate_cache(pattern=f"dashboard:summary:{user_id}:*")  # Dashboard cache
    
    return{
       "message":"Application successfully deleted."

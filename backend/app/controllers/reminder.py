@@ -14,8 +14,13 @@ router=APIRouter()
 
 @router.post("/create_reminder")
 async def create_reminder(data: reminder.CreateReminder, user=Depends(utils.get_current_user), db: Session = Depends(get_db)):
+    # Normalize input datetime to UTC before validating against current UTC time.
+    if data.remind_at.tzinfo is None:
+        remind_at_utc = data.remind_at.replace(tzinfo=timezone.utc)
+    else:
+        remind_at_utc = data.remind_at.astimezone(timezone.utc)
 
-    if data.remind_at <= datetime.utcnow():
+    if remind_at_utc <= datetime.now(timezone.utc):
         raise HTTPException(status_code=422, detail="remind_at must be in the future")
 
    
@@ -31,7 +36,8 @@ async def create_reminder(data: reminder.CreateReminder, user=Depends(utils.get_
     reminder = Reminder(
         user_id=user,
         title=data.title,
-        remind_at=data.remind_at,
+        # Persist as naive UTC because SQLAlchemy DateTime column is timezone-naive here.
+        remind_at=remind_at_utc.replace(tzinfo=None),
         application_id=data.application_id
     )
 

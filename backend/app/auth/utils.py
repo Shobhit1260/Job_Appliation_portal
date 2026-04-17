@@ -1,4 +1,5 @@
 from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
@@ -10,7 +11,7 @@ from jose import JWTError, ExpiredSignatureError, jwt
 from app.config import settings
 
 
-hasher = CryptContext(schemes=["bcrypt"], deprecated="auto")
+hasher = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -19,7 +20,16 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, db_password: str) -> bool:
-    return hasher.verify(password, db_password)
+    if db_password.startswith("$2"):
+        try:
+            return bcrypt.checkpw(password.encode("utf-8"), db_password.encode("utf-8"))
+        except ValueError:
+            return False
+
+    try:
+        return hasher.verify(password, db_password)
+    except ValueError:
+        return False
 
 def create_access_token(data: dict, expire_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -72,6 +82,27 @@ def create_rndm_token(expires_in_minutes: int = 15) -> tuple[str, str, datetime]
     expiry_date = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
     return raw_token, hashed_token, expiry_date
+
+
+def create_otp_code(length: int = 6) -> str:
+    if length < 4:
+        length = 4
+    digits = "0123456789"
+    return "".join(secrets.choice(digits) for _ in range(length))
+
+
+def is_valid_code(
+    raw_code: str,
+    code_hash: Optional[str],
+    expires_at: Optional[datetime],
+) -> bool:
+    if not raw_code or not code_hash or not expires_at:
+        return False
+
+    if datetime.utcnow() > expires_at:
+        return False
+
+    return secrets.compare_digest(hash_token(raw_code), code_hash)
 
 
 def is_valid_reset_token(

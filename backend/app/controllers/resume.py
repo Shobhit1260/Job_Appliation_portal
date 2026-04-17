@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from fastapi import APIRouter,Depends,HTTPException, Query
+from fastapi import APIRouter,Depends,HTTPException, Query, UploadFile, File, Form
 from app.database import get_db
 from app.auth.utils import get_current_user
 from app.Utils.s3Config import generate_upload_url,generate_download_url,s3,BUCKET
@@ -10,6 +10,77 @@ from sqlalchemy import func
 from app.schemas.resume import ResumeConfirmRequest
 from app.cache_utils import cache_endpoint, invalidate_cache
 router=APIRouter()
+
+
+@router.post("/resumes/upload-direct")
+async def upload_resume_direct(
+    file: UploadFile = File(...),
+    label: str = Form(...),
+    commit_message: str | None = Form(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    if file.content_type != "application/pdf":
+        raise HTTPException(400, "Only PDF allowed")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(413, "File too large")
+
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    existing = db.query(Resume).filter_by(
+        user_id=current_user,
+        file_hash=file_hash
+    ).first()
+
+    if existing:
+        raise HTTPException(400, "Resume already exists")
+
+    max_version = db.query(func.max(Resume.version))\
+        .filter_by(user_id=current_user).scalar()
+    version = (max_version or 0) + 1
+
+    file_id = str(uuid.uuid4())
+    key = f"resumes/{current_user}/{file_id}.pdf"
+
+    try:
+        s3.put_object(
+            Bucket=BUCKET,
+            Key=key,
+            Body=file_bytes,
+            ContentType="application/pdf"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Failed to upload file to storage: {str(e)}")
+
+    resume = Resume(
+        user_id=current_user,
+        version=version,
+        label=label,
+        file_path=key,
+        file_hash=file_hash,
+        file_size_kb=len(file_bytes) // 1024,
+        commit_message=commit_message,
+        tags=None
+    )
+
+    db.add(resume)
+    db.commit()
+    db.refresh(resume)
+
+    await invalidate_cache(pattern=f"resume:list:{current_user}:*")
+
+    return {
+        "id": str(resume.id),
+        "user_id": current_user,
+        "version": version,
+        "label": label,
+        "file_hash": file_hash,
+        "file_path": key,
+        "file_size_kb": resume.file_size_kb,
+        "tags": resume.tags,
+        "created_at": resume.created_at
+    }
 
 
 @router.get("/resumes/upload-url")
@@ -144,8 +215,8 @@ async def get_resume(
         raise HTTPException(404, "Not found")
 
     
-    # Extract key from URL
-    key = resume.file_path.split(".com/")[1]
+    # Handle both raw object keys and full URLs persisted in file_path
+    key = resume.file_path.split(".com/")[1] if ".com/" in resume.file_path else resume.file_path
     
     download_url = generate_download_url(key)
 
@@ -169,14 +240,21 @@ async def delete_resume(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    resume = (db.query(Resume).filter(id==id).first())
+    resume = (
+        db.query(Resume)
+        .filter(
+            Resume.id == id,
+            Resume.user_id == current_user
+        )
+        .first()
+    )
 
     if not resume:
         raise HTTPException(404, "Not found")
 
    
-    # Extract key
-    key = resume.file_path.split(".com/")[1]
+    # Handle both raw object keys and full URLs persisted in file_path
+    key = resume.file_path.split(".com/")[1] if ".com/" in resume.file_path else resume.file_path
 
     # Delete from S3
     s3.delete_object(Bucket=BUCKET, Key=key)

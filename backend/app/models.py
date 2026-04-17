@@ -15,6 +15,12 @@ class User(Base):
     password = Column(String, nullable=False)
     reset_token_hash = Column(String, nullable=True)
     reset_token_expires_at = Column(DateTime, nullable=True)
+    email_verified = Column(Boolean, default=False, nullable=False)
+    email_verification_code_hash = Column(String, nullable=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
+    login_otp_code_hash = Column(String, nullable=True)
+    login_otp_expires_at = Column(DateTime, nullable=True)
+    oauth_provider = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     preferences = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.now, nullable=True)
@@ -23,6 +29,8 @@ class User(Base):
     resumes = relationship("Resume", back_populates="user", cascade="all, delete")
     applications = relationship("Application", back_populates="user", cascade="all, delete")
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete")
+    settings = relationship("UserSettings", back_populates="user", cascade="all, delete", uselist=False)
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete")
 
 class Resume(Base):
     __tablename__= "resumes"
@@ -163,12 +171,52 @@ class InterviewPrep(Base):
         back_populates="interview_preps"
     )
 
-    # Index
     __table_args__ = (
         Index("idx_interviewprep_application", "application_id"),
     )
 
     # Added a line to confirm that ci cd is working fine or not ?
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    email_notifications = Column(Boolean, default=True, nullable=False)
+    reminder_notifications = Column(Boolean, default=True, nullable=False)
+    application_updates = Column(Boolean, default=True, nullable=False)
+    interview_reminders = Column(Boolean, default=True, nullable=False)
+    offer_notifications = Column(Boolean, default=True, nullable=False)
+    weekly_digest = Column(Boolean, default=False, nullable=False)
+    dark_mode = Column(Boolean, default=False, nullable=False)
+    theme = Column(String(50), default="light", nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+
+    user = relationship("User", back_populates="settings")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    application_id = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    notification_type = Column(String, nullable=False)  # reminder, update, status_change, interview
+    is_read = Column(Boolean, default=False, nullable=False)
+    data = Column(JSONB, nullable=True)  # Additional metadata
+    created_at = Column(DateTime, default=datetime.now, nullable=False, index=True)
+
+    user = relationship("User", back_populates="notifications")
+    application = relationship("Application", foreign_keys=[application_id])
+
+    __table_args__ = (
+        Index("idx_user_is_read", "user_id", "is_read"),
+        Index("idx_user_created", "user_id", "created_at"),
+    )
 
 
 

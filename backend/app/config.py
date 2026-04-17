@@ -29,10 +29,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES: int = 15
+    LOGIN_OTP_EXPIRE_MINUTES: int = 10
     
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000"
-    ALLOW_CREDENTIALS: bool = True
+    ALLOW_CREDENTIALS: bool = False
     ALLOW_METHODS: str = "*"
     ALLOW_HEADERS: str = "*"
 
@@ -49,7 +51,22 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
     CACHE_TTL_SECONDS: int = 3600  # 1 hour default TTL
-    ENABLE_CACHING: bool = True
+    ENABLE_CACHING: bool = False
+
+    # Email (SMTP)
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 465
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: Optional[str] = None
+    SMTP_FROM_NAME: str = "Job Tracker"
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+
+    # OAuth
+    FRONTEND_URL: Optional[str] = "http://localhost:3000"
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,

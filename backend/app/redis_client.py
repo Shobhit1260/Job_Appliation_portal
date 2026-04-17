@@ -35,7 +35,7 @@ async def init_redis() -> redis.Redis:
     global redis_client
     
     try:
-        redis_client = await redis.from_url(
+        redis_client = redis.from_url(
             f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}" 
             if settings.REDIS_PASSWORD 
             else f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
