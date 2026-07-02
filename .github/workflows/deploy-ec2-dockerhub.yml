@@ -61,6 +61,7 @@ jobs:
     env:
       EC2_APP_DIR: ${{ secrets.EC2_APP_DIR != '' && secrets.EC2_APP_DIR || '/home/ubuntu/Job_Appliation_portal' }}
       APP_DOMAIN: ${{ secrets.APP_DOMAIN }}
+      EC2_SSH_PORT: ${{ secrets.EC2_SSH_PORT != '' && secrets.EC2_SSH_PORT || '22' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,8 +70,10 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
+          port: ${{ env.EC2_SSH_PORT }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script_stop: true
           script: |
             set -euo pipefail
@@ -80,8 +83,10 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
+          port: ${{ env.EC2_SSH_PORT }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
           script_stop: true
           script: |
             set -euo pipefail

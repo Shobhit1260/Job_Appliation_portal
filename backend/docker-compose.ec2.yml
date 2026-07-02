@@ -1,4 +1,15 @@
 services:
   api:
-    image: ${API_IMAGE:?API_IMAGE is required}
+    image: ${API_IMAGE}
     pull_policy: always
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: jobtracker-nginx
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
