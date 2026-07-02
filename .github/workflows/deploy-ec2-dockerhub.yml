@@ -104,11 +104,12 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
             export API_IMAGE="${{ secrets.DOCKER_USERNAME }}/job-tracker-api:${{ github.sha }}"
+            : "${API_IMAGE:?API_IMAGE is required}"
 
             cat > docker-compose.ec2.yml <<'EOF'
             services:
               api:
-                image: ${API_IMAGE:?API_IMAGE is required}
+                image: "${API_IMAGE}"
                 pull_policy: always
 
               nginx:
