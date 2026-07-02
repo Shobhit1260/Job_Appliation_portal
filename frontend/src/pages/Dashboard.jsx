@@ -29,6 +29,7 @@ import {
 } from 'recharts';
 import { applicationApi, dashboardApi, reminderApi } from '../api';
 import { toast } from 'sonner';
+import { formatIndiaDateTime } from '../utils/dateTime';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -171,7 +172,7 @@ export const Dashboard = () => {
     };
   }, []);
 
-  if (isLoading) return <div className="flex items-center justify-center h-full text-slate-500 font-medium">Loading Dashboard...</div>;
+  if (isLoading) return <div className="flex items-center justify-center h-full text-slate-500 dark:text-slate-400 font-medium">Loading Dashboard...</div>;
 
   // Transform backend data structure to frontend format
   const statusBreakdownArray = data?.by_status 
@@ -190,14 +191,14 @@ export const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-8 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h2>
-          <p className="text-slate-500">Welcome back! Here's what's happening with your job search.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Dashboard</h2>
+          <p className="text-slate-500 dark:text-slate-400">Welcome back! Here's what's happening with your job search.</p>
           {lastRefreshed && (
             <p className="text-xs text-slate-400 mt-2">
-              Last updated: {lastRefreshed.toLocaleTimeString()}
+              Last updated: {formatIndiaDateTime(lastRefreshed)}
             </p>
           )}
         </div>
@@ -205,7 +206,7 @@ export const Dashboard = () => {
           <button 
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-white transition-all shadow-sm disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg text-sm font-medium hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -217,7 +218,7 @@ export const Dashboard = () => {
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis.map((kpi, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+          <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className={`p-2 rounded-lg ${kpi.bg}`}>
                 <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
@@ -228,8 +229,8 @@ export const Dashboard = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium text-slate-500">{kpi.title}</p>
-              <p className="text-2xl font-bold text-slate-900">{kpi.value}</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{kpi.title}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{kpi.value}</p>
             </div>
           </div>
         ))}
@@ -237,10 +238,10 @@ export const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Application Funnel */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div className="mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Application Funnel</h3>
-            <p className="text-sm text-slate-500">Visualizing your progress from application to offer</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Application Funnel</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Visualizing your progress from application to offer</p>
           </div>
           <div className="h-75">
             <ResponsiveContainer width="100%" height="100%">
@@ -269,10 +270,10 @@ export const Dashboard = () => {
         </div>
 
         {/* Status Breakdown */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div className="mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Status Breakdown</h3>
-            <p className="text-sm text-slate-500">Current state of all applications</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Status Breakdown</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Current state of all applications</p>
           </div>
           <div className="h-75 flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="80%">
@@ -297,8 +298,8 @@ export const Dashboard = () => {
               {statusBreakdownArray.map((entry, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="text-xs text-slate-500 truncate">{entry.name}</span>
-                  <span className="text-xs font-bold text-slate-900 ml-auto">{entry.value}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{entry.name}</span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 ml-auto">{entry.value}</span>
                 </div>
               ))}
             </div>
@@ -308,10 +309,10 @@ export const Dashboard = () => {
 
       {/* Portal Stats & Reminders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div className="mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Portal Distribution</h3>
-            <p className="text-sm text-slate-500">Where you are finding your opportunities</p>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Portal Distribution</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Where you are finding your opportunities</p>
           </div>
           <div className="h-62.5">
             <ResponsiveContainer width="100%" height="100%">
@@ -326,11 +327,11 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Recent Reminders</h3>
-              <p className="text-sm text-slate-500">Upcoming tasks for your applications</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recent Reminders</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Upcoming tasks for your applications</p>
             </div>
             <button
               onClick={() => navigate('/reminders')}
@@ -341,22 +342,22 @@ export const Dashboard = () => {
           </div>
           <div className="space-y-4">
             {recentReminders.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 text-sm text-slate-500">
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 text-sm text-slate-500 dark:text-slate-400">
                 No pending reminders found.
               </div>
             ) : (
               recentReminders.map((reminder) => (
                 <div
                   key={reminder.id}
-                  className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
+                  className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all cursor-pointer"
                   onClick={() => navigate('/reminders')}
                 >
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                     <Bell className="w-5 h-5 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{reminder.title}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{reminder.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       {formatReminderDue(reminder.remind_at)} • {reminder.applicationLabel}
                     </p>
                   </div>

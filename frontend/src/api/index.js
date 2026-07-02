@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000',
 });
 
 // Add interceptor for JWT
@@ -64,6 +64,7 @@ export const applicationApi = {
   getById: (id) => api.get(`/application/getApplication/${id}`),
   create: (data) => api.post('/application/create_application', data),
   update: (id, data) => api.patch(`/application/update_application/${id}`, data),
+  updateTimelineEvent: (eventId, data) => api.patch(`/application/timeline/${eventId}`, data),
   delete: (id) => api.delete(`/application/delete_application/${id}`),
   getTimeline: (id) => api.get(`/application/gettimeline/${id}`),
   addScreeningAnswer: (id, data) => api.post(`/application/applications/${id}/screening-answers`, data),

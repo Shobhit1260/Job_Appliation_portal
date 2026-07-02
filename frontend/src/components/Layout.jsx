@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationApi } from '../api';
+import { settingsApi } from '../api';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { applyThemeSettings, restoreThemeFromStorage } from '../utils/theme';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -55,11 +57,31 @@ export const Layout = ({ children }) => {
     }
   }, []);
 
+  const fetchAndApplySettings = React.useCallback(async () => {
+    try {
+      const response = await settingsApi.getSettings();
+      const payload = response?.data?.data || response?.data || response || {};
+      applyThemeSettings(payload);
+    } catch {
+      restoreThemeFromStorage();
+    }
+  }, []);
+
   React.useEffect(() => {
     fetchUnreadCount();
+    fetchAndApplySettings();
     const refreshInterval = setInterval(fetchUnreadCount, 60 * 1000);
-    return () => clearInterval(refreshInterval);
-  }, [fetchUnreadCount]);
+    const handleSettingsUpdated = () => {
+      fetchAndApplySettings();
+    };
+
+    window.addEventListener('settingsUpdated', handleSettingsUpdated);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('settingsUpdated', handleSettingsUpdated);
+    };
+  }, [fetchUnreadCount, fetchAndApplySettings]);
 
   const handleLogout = () => {
     logout();
@@ -79,14 +101,14 @@ export const Layout = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 overflow-hidden font-sans transition-colors">
       {/* Sidebar */}
-      <aside className="w-64 border-r bg-white flex flex-col shrink-0">
+      <aside className="w-64 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 flex flex-col shrink-0 transition-colors">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Briefcase className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">JobTrack Pro</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">JobTrack Pro</h1>
         </div>
 
         <nav className="flex-1 px-4 space-y-1">
@@ -94,13 +116,13 @@ export const Layout = ({ children }) => {
           <SidebarLink to="/applications" icon={Briefcase} label="Applications" />
           <SidebarLink to="/resumes" icon={FileText} label="Resumes" />
           <SidebarLink to="/reminders" icon={Bell} label="Reminders" />
-          <div className="my-4 h-px bg-slate-200" />
+          <div className="my-4 h-px bg-slate-200 dark:bg-slate-800" />
           <SidebarLink to="/settings" icon={Settings} label="Settings" />
         </nav>
 
-        <div className="p-4 mt-auto border-t">
+        <div className="p-4 mt-auto border-t border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 px-2 py-3 mb-2">
-            <div className="w-10 h-10 rounded-full border overflow-hidden bg-slate-100">
+            <div className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800">
               <img 
                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} 
                 alt="Avatar"
@@ -108,12 +130,12 @@ export const Layout = ({ children }) => {
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold truncate text-slate-900">{user?.email?.split('@')[0] || 'User'}</span>
-              <span className="text-xs text-slate-500 truncate">{user?.email || 'user@example.com'}</span>
+              <span className="text-sm font-semibold truncate text-slate-900 dark:text-slate-100">{user?.email?.split('@')[0] || 'User'}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email || 'user@example.com'}</span>
             </div>
           </div>
           <button 
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-all duration-200"
             onClick={handleLogout}
           >
             <LogOut className="w-5 h-5" />
@@ -123,15 +145,15 @@ export const Layout = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
         {/* Topbar */}
-        <header className="h-16 border-b bg-white/80 backdrop-blur-sm flex items-center justify-between px-8 shrink-0">
+        <header className="h-16 border-b border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/80 backdrop-blur-sm flex items-center justify-between px-8 shrink-0 transition-colors">
           <div className="relative w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
               placeholder="Search applications, companies..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+              className="w-full pl-10 pr-4 py-2 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
             />
           </div>
           <div className="flex items-center gap-4">
@@ -142,10 +164,10 @@ export const Layout = ({ children }) => {
               <Plus className="w-4 h-4" />
               New Application
             </button>
-            <div className="w-px h-6 bg-slate-200" />
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
             <button
               onClick={handleOpenNotifications}
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-full relative transition-colors"
+              className="p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-full relative transition-colors"
               aria-label="Open notifications"
             >
               <Bell className="w-5 h-5" />
@@ -159,7 +181,7 @@ export const Layout = ({ children }) => {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 dark:bg-slate-950 transition-colors">
           {children}
         </div>
       </main>

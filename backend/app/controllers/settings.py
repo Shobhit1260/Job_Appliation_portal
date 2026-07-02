@@ -67,6 +67,36 @@ async def update_user_settings(
     }
 
 
+def _get_user_settings(db: Session, user_id: str) -> UserSettings:
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not user_settings:
+        user_settings = UserSettings(user_id=user_id)
+        db.add(user_settings)
+        db.flush()
+    return user_settings
+
+
+def _create_notification(
+    db: Session,
+    *,
+    user_id: str,
+    title: str,
+    description: str | None,
+    notification_type: str,
+    application_id=None,
+):
+    notification = Notification(
+        user_id=user_id,
+        application_id=application_id,
+        title=title,
+        description=description,
+        notification_type=notification_type,
+        is_read=False,
+    )
+    db.add(notification)
+    return notification
+
+
 # ===== NOTIFICATION ROUTES =====
 
 @router.get("/notifications")

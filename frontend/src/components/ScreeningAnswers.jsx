@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { applicationApi } from '../api';
 import { toast } from 'sonner';
+import { formatIndiaDateTime } from '../utils/dateTime';
 
 export const ScreeningAnswers = ({ applicationId, onClose }) => {
   const [answers, setAnswers] = useState([]);
@@ -19,7 +20,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
     try {
       setIsLoading(true);
       const response = await applicationApi.getById(applicationId);
-      setAnswers(response.screening_answers || []);
+      setAnswers(response?.data?.screening_answers || []);
     } catch (error) {
       console.error('Failed to fetch screening answers:', error);
       toast.error('Failed to load screening answers');
@@ -46,6 +47,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
       setFormData({ question: '', answer: '', question_type: 'text' });
       setShowForm(false);
       await fetchAnswers();
+      window.dispatchEvent(new Event('refreshDashboard'));
     } catch (error) {
       console.error('Failed to add answer:', error);
       toast.error('Failed to add answer');
@@ -66,19 +68,19 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+      <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Screening Answers</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage pre-screening questions and answers</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Screening Answers</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage pre-screening questions and answers</p>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
           </button>
         )}
       </div>
@@ -87,36 +89,36 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
       <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <p className="text-slate-500">Loading answers...</p>
+            <p className="text-slate-500 dark:text-slate-400">Loading answers...</p>
           </div>
         ) : answers.length === 0 ? (
           <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
             <p className="text-sm text-blue-700">No screening answers yet. Add one to get started.</p>
           </div>
         ) : (
           answers.map((answer) => (
-            <div key={answer.id} className="p-4 border border-slate-200 rounded-lg hover:shadow-sm transition-shadow">
+            <div key={answer.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <p className="font-semibold text-slate-900 text-sm">Q: {answer.question}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Q: {answer.question}</p>
                     {answer.question_type && (
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                         {answer.question_type}
                       </span>
                     )}
                   </div>
-                  <p className="text-slate-600 text-sm bg-slate-50 p-3 rounded border border-slate-200">
+                  <p className="text-slate-600 dark:text-slate-300 text-sm bg-slate-50 dark:bg-slate-950 p-3 rounded border border-slate-200 dark:border-slate-700">
                     A: {answer.answer}
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    {new Date(answer.created_at).toLocaleDateString()}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    {formatIndiaDateTime(answer.created_at)}
                   </p>
                 </div>
                 <button
                   onClick={() => handleDeleteAnswer(answer.id)}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
                   title="Delete answer"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -129,16 +131,16 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
 
       {/* Form Section */}
       {showForm && (
-        <div className="p-6 border-t border-slate-200 bg-slate-50">
+        <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <form onSubmit={handleAddAnswer} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Question Type
               </label>
               <select
                 value={formData.question_type}
                 onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="text">Text</option>
                 <option value="mcq">Multiple Choice</option>
@@ -147,7 +149,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Question
               </label>
               <input
@@ -155,7 +157,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
                 value={formData.question}
                 onChange={(e) => setFormData({ ...formData, question: e.target.value })}
                 placeholder="Enter the screening question..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
@@ -168,7 +170,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
                 onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
                 placeholder="Enter your answer..."
                 rows="3"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
               />
             </div>
 
@@ -179,7 +181,7 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
                   setShowForm(false);
                   setFormData({ question: '', answer: '', question_type: 'text' });
                 }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
@@ -196,10 +198,10 @@ export const ScreeningAnswers = ({ applicationId, onClose }) => {
 
       {/* Footer with Add Button */}
       {!showForm && (
-        <div className="p-6 border-t border-slate-200 bg-slate-50">
+        <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <button
             onClick={() => setShowForm(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-white transition-colors text-sm font-medium text-slate-700"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors text-sm font-medium text-slate-700 dark:text-slate-200"
           >
             <Plus className="w-4 h-4" />
             Add Screening Answer

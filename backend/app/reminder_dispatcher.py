@@ -5,7 +5,7 @@ from datetime import datetime
 from app.auth.email_service import is_email_enabled, send_email
 from app.cache_utils import invalidate_cache
 from app.database import Session
-from app.models import Application, Reminder, User
+from app.models import Application, Reminder, User, UserSettings, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +40,19 @@ def _build_reminder_email(reminder: Reminder, application: Application | None) -
     return subject, text_body, html_body
 
 
-async def dispatch_due_reminders_once() -> int:
-    if not is_email_enabled():
-        return 0
+def _get_or_create_user_settings(db, user_id: str) -> UserSettings:
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not user_settings:
+        user_settings = UserSettings(user_id=user_id)
+        db.add(user_settings)
+        db.flush()
+    return user_settings
 
+
+async def dispatch_due_reminders_once() -> int:
     db = Session()
-    sent_count = 0
+    processed_count = 0
+    has_changes = False
     cache_users: set[str] = set()
 
     try:
@@ -62,26 +69,41 @@ async def dispatch_due_reminders_once() -> int:
         )
 
         for reminder, user, application in due_rows:
-            if not user.email:
+            user_settings = _get_or_create_user_settings(db, str(user.id))
+
+            if not user_settings.reminder_notifications:
+                reminder.is_sent = True
+                has_changes = True
                 continue
 
-            subject, text_body, html_body = _build_reminder_email(reminder, application)
-            sent = send_email(user.email, subject, text_body, html_body)
+            if user_settings.email_notifications and is_email_enabled() and user.email:
+                subject, text_body, html_body = _build_reminder_email(reminder, application)
+                send_email(user.email, subject, text_body, html_body)
 
-            if sent:
-                reminder.is_sent = True
-                sent_count += 1
-                cache_users.add(str(user.id))
+            notification = Notification(
+                user_id=user.id,
+                application_id=reminder.application_id,
+                title=f"Reminder: {reminder.title}",
+                description=reminder.description or "A reminder is due now.",
+                notification_type="reminder",
+                is_read=False,
+            )
+            db.add(notification)
 
-        if sent_count > 0:
+            reminder.is_sent = True
+            processed_count += 1
+            has_changes = True
+            cache_users.add(str(user.id))
+
+        if has_changes:
             db.commit()
 
             for user_id in cache_users:
                 await invalidate_cache(pattern=f"reminder:list:{user_id}:*")
 
-            logger.info("Reminder dispatcher sent %s reminder email(s)", sent_count)
+            logger.info("Reminder dispatcher processed %s reminder(s)", processed_count)
 
-        return sent_count
+        return processed_count
     except Exception:
         db.rollback()
         logger.exception("Reminder dispatcher failed while processing due reminders")

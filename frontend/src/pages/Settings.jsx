@@ -14,6 +14,8 @@ import {
 import { settingsApi, notificationApi } from '../api';
 import { toast } from 'sonner';
 import { getErrorMessage } from '../utils/errorHandler';
+import { formatIndiaDateTime } from '../utils/dateTime';
+import { applyThemeSettings } from '../utils/theme';
 
 export const Settings = () => {
   const [searchParams] = useSearchParams();
@@ -41,7 +43,9 @@ export const Settings = () => {
   const fetchSettings = async () => {
     try {
       const { data } = await settingsApi.getSettings();
-      setSettings(data);
+      const payload = data?.data || data || {};
+      setSettings(payload);
+      applyThemeSettings(payload);
     } catch (error) {
       console.error('Failed to fetch settings:', error);
       toast.error('Failed to load settings');
@@ -75,7 +79,10 @@ export const Settings = () => {
       const { data } = await settingsApi.updateSettings({
         [field]: value,
       });
-      setSettings(data);
+      const payload = data?.data || data || {};
+      setSettings(payload);
+      applyThemeSettings(payload);
+      window.dispatchEvent(new Event('settingsUpdated'));
       toast.success('Setting updated');
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -142,7 +149,7 @@ export const Settings = () => {
       <button
         onClick={() => handleSettingChange(field, !settings?.[field])}
         disabled={isSaving}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
           settings?.[field] ? 'bg-blue-600' : 'bg-slate-200'
         } ${isSaving ? 'opacity-50' : 'cursor-pointer'}`}
       >
@@ -164,20 +171,20 @@ export const Settings = () => {
   }
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
-        <p className="text-slate-500">Manage your preferences and notifications</p>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Settings</h2>
+        <p className="text-slate-500 dark:text-slate-400">Manage your preferences and notifications</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
         <button
           onClick={() => setActiveTab('preferences')}
           className={`px-4 py-3 font-medium border-b-2 transition-colors ${
             activeTab === 'preferences'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           Preferences
@@ -187,7 +194,7 @@ export const Settings = () => {
           className={`px-4 py-3 font-medium border-b-2 transition-colors flex items-center gap-2 ${
             activeTab === 'notifications'
               ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Bell className="w-4 h-4" />
@@ -203,13 +210,13 @@ export const Settings = () => {
       {/* Preferences Tab */}
       {activeTab === 'preferences' && settings && (
         <div className="grid gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
             <div className="mb-6">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Mail className="w-5 h-5" />
                 Email Notifications
               </h3>
-              <p className="text-sm text-slate-500 mt-1">Control when you receive email notifications</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Control when you receive email notifications</p>
             </div>
             <div className="space-y-3">
               <SettingToggle
@@ -245,13 +252,13 @@ export const Settings = () => {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
             <div className="mb-6">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Moon className="w-5 h-5" />
                 Appearance
               </h3>
-              <p className="text-sm text-slate-500 mt-1">Customize how the app looks</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Customize how the app looks</p>
             </div>
             <div className="space-y-3">
               <SettingToggle
@@ -260,19 +267,22 @@ export const Settings = () => {
                 field="dark_mode"
               />
               <div className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50/50 transition-colors">
-                <label className="block text-sm font-medium text-slate-900 mb-2">
+                <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
                   Theme
                 </label>
                 <select
                   value={settings.theme || 'light'}
                   onChange={(e) => handleSettingChange('theme', e.target.value)}
                   disabled={isSaving}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
                   <option value="auto">Auto (System)</option>
                 </select>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  The selected theme is applied across the app immediately.
+                </p>
               </div>
             </div>
           </div>
@@ -281,11 +291,11 @@ export const Settings = () => {
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
           <div className="p-6 border-b flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Notifications</h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Notifications</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {notifications.length} total • {unreadCount} unread
               </p>
             </div>
@@ -294,14 +304,14 @@ export const Settings = () => {
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
                   >
                     Mark all as read
                   </button>
                 )}
                 <button
                   onClick={handleDeleteAllNotifications}
-                  className="px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1"
+                  className="px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors flex items-center gap-1"
                 >
                   <Trash2 className="w-4 h-4" />
                   Clear all
@@ -314,20 +324,20 @@ export const Settings = () => {
             {notifications.length === 0 ? (
               <div className="p-12 text-center">
                 <Bell className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No notifications yet</p>
+                <p className="text-slate-500 dark:text-slate-400">No notifications yet</p>
               </div>
             ) : (
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-slate-50/50 transition-colors ${
+                  className={`p-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors ${
                     !notification.is_read ? 'bg-blue-50/30' : ''
                   }`}
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-slate-900">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">
                           {notification.title}
                         </p>
                         {!notification.is_read && (
@@ -335,19 +345,19 @@ export const Settings = () => {
                         )}
                       </div>
                       {notification.description && (
-                        <p className="text-sm text-slate-600 mb-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
                           {notification.description}
                         </p>
                       )}
-                      <p className="text-xs text-slate-500">
-                        {new Date(notification.created_at).toLocaleString()}
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatIndiaDateTime(notification.created_at)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {!notification.is_read && (
                         <button
                           onClick={() => handleMarkAsRead(notification.id)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
                           title="Mark as read"
                         >
                           <Check className="w-4 h-4" />
@@ -355,7 +365,7 @@ export const Settings = () => {
                       )}
                       <button
                         onClick={() => handleDeleteNotification(notification.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />

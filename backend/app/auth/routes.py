@@ -57,20 +57,20 @@ def _send_login_otp(email: str, code: str) -> bool:
 def _get_oauth_client(provider: str):
     client = oauth.create_client(provider)
     if client is None:
-        raise HTTPException(status_code=400, detail=f"{provider} OAuth is not configured")
+        raise HTTPException(
+            status_code=400, detail=f"{provider} OAuth is not configured"
+        )
     return client
+
 
 @router.post("/register")
 def register(user: auth.Create_user, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.email == user.email).first()
+    existing_user = (
+        db.query(models.User).filter(models.User.email == user.email).first()
+    )
     if existing_user:
-        raise HTTPException(status_code=400, detail="User with this email already exists.")
-
-    email_enabled = is_email_enabled()
-    if not email_enabled:
         raise HTTPException(
-            status_code=500,
-            detail="Email service is not configured. Please configure SMTP settings.",
+            status_code=400, detail="User with this email already exists."
         )
 
     hashed_pw = utils.hash_password(user.password)
@@ -81,35 +81,50 @@ def register(user: auth.Create_user, db: Session = Depends(get_db)):
         password=hashed_pw,
         email_verified=False,
         email_verification_code_hash=utils.hash_token(verification_code),
-        email_verification_expires_at=datetime.utcnow() + timedelta(
-            minutes=settings.EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES
-        ),
+        email_verification_expires_at=datetime.utcnow()
+        + timedelta(minutes=settings.EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES),
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    sent = _send_verification_code(new_user.email, verification_code)
-    if not sent:
-        raise HTTPException(
-            status_code=500,
-            detail="Unable to send verification email. Please check SMTP configuration.",
-        )
+    sent = is_email_enabled() and _send_verification_code(
+        new_user.email, verification_code
+    )
+    if sent:
+        return {"message": "User created. Verification code sent to your email."}
 
-    return {"message": "User created. Verification code sent to your email."}
+    smtp_host = (
+        settings.SMTP_HOST.strip().lower()
+        if isinstance(settings.SMTP_HOST, str)
+        else ""
+    )
+    if smtp_host in {"mailpit", "localhost", "127.0.0.1"}:
+        return {
+            "message": "User created. Use the dev verification code below.",
+            "dev_verification_code": verification_code,
+        }
+
+    return {
+        "message": (
+            "User created, but the verification email could not be sent. "
+            "Please check SMTP configuration or resend the verification email."
+        ),
+    }
+
 
 @router.post("/login")
-def login(user:auth.Login_user, db: Session = Depends(get_db)):
-    email=user.email
-    db_user=db.query(models.User).filter(models.User.email == email).first()
+def login(user: auth.Login_user, db: Session = Depends(get_db)):
+    email = user.email
+    db_user = db.query(models.User).filter(models.User.email == email).first()
 
     if not db_user:
-        raise HTTPException(status_code=401,detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    pw=utils.verify_password(user.password, db_user.password)
+    pw = utils.verify_password(user.password, db_user.password)
 
     if not pw:
-        raise HTTPException(status_code=401,detail="Invalid email or Password")
+        raise HTTPException(status_code=401, detail="Invalid email or Password")
 
     email_enabled = is_email_enabled()
 
@@ -119,12 +134,6 @@ def login(user:auth.Login_user, db: Session = Depends(get_db)):
             detail="Please verify your email before login.",
         )
 
-    if not email_enabled:
-        raise HTTPException(
-            status_code=500,
-            detail="Email service is not configured. Please configure SMTP settings.",
-        )
-
     otp_code = utils.create_otp_code()
     db_user.login_otp_code_hash = utils.hash_token(otp_code)
     db_user.login_otp_expires_at = datetime.utcnow() + timedelta(
@@ -132,15 +141,29 @@ def login(user:auth.Login_user, db: Session = Depends(get_db)):
     )
     db.commit()
 
-    sent = _send_login_otp(db_user.email, otp_code)
-    if not sent:
-        raise HTTPException(
-            status_code=500,
-            detail="Unable to send login verification code.",
-        )
+    sent = email_enabled and _send_login_otp(db_user.email, otp_code)
+    if sent:
+        return {
+            "message": "Verification code sent to email",
+            "requires_2fa": True,
+        }
+
+    smtp_host = (
+        settings.SMTP_HOST.strip().lower()
+        if isinstance(settings.SMTP_HOST, str)
+        else ""
+    )
+    if smtp_host in {"mailpit", "localhost", "127.0.0.1"}:
+        return {
+            "message": "Verification code generated for local development.",
+            "requires_2fa": True,
+            "dev_login_code": otp_code,
+        }
 
     return {
-        "message": "Verification code sent to email",
+        "message": (
+            "Login verification code could not be sent. Please check SMTP configuration."
+        ),
         "requires_2fa": True,
     }
 
@@ -158,7 +181,9 @@ def verify_login_otp(payload: auth.VerifyLoginOtp, db: Session = Depends(get_db)
         db_user.login_otp_expires_at,
     )
     if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired verification code"
+        )
 
     db_user.login_otp_code_hash = None
     db_user.login_otp_expires_at = None
@@ -166,23 +191,24 @@ def verify_login_otp(payload: auth.VerifyLoginOtp, db: Session = Depends(get_db)
 
     access_token = utils.create_access_token(
         {"user_id": str(db_user.id)},
-        expire_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
 
-    return {
-        "access_token":access_token,
-        "user":{
-            "email": db_user.email
-        }
-    }
+    return {"access_token": access_token, "user": {"email": db_user.email}}
 
 
 @router.post("/verify-email/request")
-def request_email_verification(payload: auth.RequestEmailCode, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.email == payload.email).first()
+def request_email_verification(
+    payload: auth.RequestEmailCode, db: Session = Depends(get_db)
+):
+    existing_user = (
+        db.query(models.User).filter(models.User.email == payload.email).first()
+    )
 
     if not existing_user or existing_user.email_verified:
-        return {"message": "If your account exists, a verification email has been sent."}
+        return {
+            "message": "If your account exists, a verification email has been sent."
+        }
 
     email_enabled = is_email_enabled()
     if not email_enabled:
@@ -207,7 +233,9 @@ def request_email_verification(payload: auth.RequestEmailCode, db: Session = Dep
 
 @router.post("/verify-email")
 def verify_email(payload: auth.VerifyEmailCode, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.email == payload.email).first()
+    existing_user = (
+        db.query(models.User).filter(models.User.email == payload.email).first()
+    )
 
     if not existing_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -218,7 +246,9 @@ def verify_email(payload: auth.VerifyEmailCode, db: Session = Depends(get_db)):
         existing_user.email_verification_expires_at,
     )
     if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired verification code"
+        )
 
     existing_user.email_verified = True
     existing_user.email_verification_code_hash = None
@@ -240,7 +270,9 @@ async def oauth_login(provider: str, request: Request):
 
 
 @router.get("/oauth/{provider}/callback", name="oauth_callback")
-async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
+async def oauth_callback(
+    provider: str, request: Request, db: Session = Depends(get_db)
+):
     provider = provider.lower()
     if provider != "google":
         raise HTTPException(status_code=400, detail="Unsupported provider")
@@ -252,13 +284,17 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     display_name = None
 
     if provider == "google":
-        user_resp = await client.get("https://openidconnect.googleapis.com/v1/userinfo", token=token)
+        user_resp = await client.get(
+            "https://openidconnect.googleapis.com/v1/userinfo", token=token
+        )
         user_info = user_resp.json()
         email = user_info.get("email")
         display_name = user_info.get("name")
 
     if not email:
-        raise HTTPException(status_code=400, detail="Unable to read email from OAuth provider")
+        raise HTTPException(
+            status_code=400, detail="Unable to read email from OAuth provider"
+        )
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
@@ -299,14 +335,16 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         },
     }
 
+
 @router.post("/forgot-password")
-def forget_password(data:auth.ForgotPassword,db: Session=Depends(get_db)):
-    existing_user=db.query(models.User).filter(models.User.email==data.email).first()
-    
+def forget_password(data: auth.ForgotPassword, db: Session = Depends(get_db)):
+    existing_user = (
+        db.query(models.User).filter(models.User.email == data.email).first()
+    )
 
     if not existing_user:
         return {"message": "If this email exists, reset link has been sent"}
-    
+
     reset_password_token = utils.create_rndm_token()
     raw_token, hashed_token, expiry_date = reset_password_token
 
@@ -316,16 +354,18 @@ def forget_password(data:auth.ForgotPassword,db: Session=Depends(get_db)):
     db.commit()
 
     return {
-       "message": "Password reset token generated", 
-       "raw_token": raw_token,
-       "expires_at": expiry_date
-     }
+        "message": "Password reset token generated",
+        "raw_token": raw_token,
+        "expires_at": expiry_date,
+    }
 
 
 @router.post("/reset-password")
 def reset_password(payload: auth.ResetPassword, db: Session = Depends(get_db)):
     token_hash = utils.hash_token(payload.token)
-    existing_user = db.query(models.User).filter(models.User.reset_token_hash == token_hash).first()
+    existing_user = (
+        db.query(models.User).filter(models.User.reset_token_hash == token_hash).first()
+    )
 
     if not existing_user:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
@@ -345,12 +385,3 @@ def reset_password(payload: auth.ResetPassword, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password reset successful"}
-
-     
-    
-
-
-
-
-
-

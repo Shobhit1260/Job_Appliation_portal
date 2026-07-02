@@ -69,10 +69,15 @@ class CreateScreeningAnswer(BaseModel):
 class TimelineEventResponse(BaseModel):
     id: UUID
     event_type: str
+    title: str | None = None
     metadata: dict[str, Any] | None = Field(alias="metadataa")
     event_at: datetime
 
     class Config:
         from_attributes = True    
         populate_by_name = True
+
+
+class UpdateTimelineEvent(BaseModel):
+    title: str = Field(min_length=1)
 

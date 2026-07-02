@@ -5,13 +5,44 @@ from fastapi import APIRouter,Depends,HTTPException, Query
 from app.database import get_db
 from sqlalchemy.orm import Session, selectinload
 from app.auth import utils
-from app.models import Application,ScreeningAnswer,TimelineEvent
+from app.models import Application,ScreeningAnswer,TimelineEvent, UserSettings, Notification, User
 from sqlalchemy import or_
 from uuid import UUID
 from app.schemas.application import TimelineEventResponse
 from app.cache_utils import cache_endpoint, invalidate_cache
+from app.auth.email_service import is_email_enabled, send_email
 
 router=APIRouter()
+
+
+def _get_or_create_user_settings(db: Session, user_id: str) -> UserSettings:
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+    if not user_settings:
+        user_settings = UserSettings(user_id=user_id)
+        db.add(user_settings)
+        db.flush()
+    return user_settings
+
+
+def _create_notification(
+    db: Session,
+    *,
+    user_id: str,
+    title: str,
+    description: str | None,
+    notification_type: str,
+    application_id=None,
+):
+    notification = Notification(
+        user_id=user_id,
+        application_id=application_id,
+        title=title,
+        description=description,
+        notification_type=notification_type,
+        is_read=False,
+    )
+    db.add(notification)
+    return notification
 
 @router.post("/create_application")
 async def create_application(data:application.CreateApplication,db:Session=Depends(get_db),user:str=Depends(utils.get_current_user)): # type: ignore
@@ -123,16 +154,48 @@ async def update_application(
         setattr(application, key, value)
 
     if "status" in update_data and update_data["status"] != old_status:
+        pretty_old_status = str(old_status).replace("_", " ").title()
+        pretty_new_status = str(update_data["status"]).replace("_", " ").title()
         timeline_event = models.TimelineEvent(
             application_id=application.id,
             event_type="status_changed",
-            title=payload.title,
+            title=f"Status changed from {pretty_old_status} to {pretty_new_status}",
             metadata={
                 "from": old_status,
                 "to": update_data["status"]
             }
         )
         db.add(timeline_event)
+
+        user_settings = _get_or_create_user_settings(db, current_user)
+        notification_title = f"Application updated: {application.company_name}"
+        notification_description = f"Status changed from {pretty_old_status} to {pretty_new_status}."
+
+        if user_settings.application_updates:
+            _create_notification(
+                db,
+                user_id=current_user,
+                application_id=application.id,
+                title=notification_title,
+                description=notification_description,
+                notification_type="status_change",
+            )
+
+        if user_settings.email_notifications and user_settings.application_updates and is_email_enabled():
+            user = db.query(User).filter(User.id == current_user).first()
+            if user and user.email:
+                send_email(
+                    user.email,
+                    notification_title,
+                    (
+                        f"Your application at {application.company_name} has been updated.\n\n"
+                        f"Status changed from {pretty_old_status} to {pretty_new_status}."
+                    ),
+                    (
+                        f"<p>Your application at <strong>{application.company_name}</strong> has been updated.</p>"
+                        f"<p>Status changed from <strong>{pretty_old_status}</strong> to <strong>{pretty_new_status}</strong>.</p>"
+                    ),
+                )
 
     application.updated_at = datetime.utcnow()
     db.add(application)
@@ -223,6 +286,37 @@ async def GetTimeline(
    return {
     "events": [TimelineEventResponse.from_orm(event) for event in events]
    }      
+
+
+@router.patch("/timeline/{event_id}")
+async def update_timeline_event(
+    event_id: UUID,
+    payload: application.UpdateTimelineEvent,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(utils.get_current_user)
+):
+    event = (
+        db.query(TimelineEvent)
+        .join(Application, TimelineEvent.application_id == Application.id)
+        .filter(
+            TimelineEvent.id == event_id,
+            Application.user_id == user_id,
+        )
+        .first()
+    )
+
+    if not event:
+        raise HTTPException(status_code=404, detail="Timeline event not found")
+
+    event.title = payload.title.strip()
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    await invalidate_cache(pattern=f"applications:timeline:{user_id}:*")
+    await invalidate_cache(pattern=f"applications:single:{event.application_id}")
+
+    return {"message": "Timeline event updated", "event": TimelineEventResponse.from_orm(event)}
 
     
   

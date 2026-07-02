@@ -4,28 +4,12 @@ import { Bell, Plus, Calendar, Briefcase, X, Loader2 } from 'lucide-react';
 import { reminderApi, applicationApi } from '../api';
 import { toast } from 'sonner';
 import { getErrorMessage } from '../utils/errorHandler';
+import { formatIndiaDateTime } from '../utils/dateTime';
 
 const initialReminderForm = {
   title: '',
   remind_at: '',
   application_id: '',
-};
-
-const formatDateTime = (value) => {
-  if (!value) return '-';
-
-  let normalizedValue = value;
-
-  // Backend currently returns naive UTC datetimes without timezone suffix.
-  // If timezone info is missing, force UTC so local display is correct.
-  const hasTimezone = /[zZ]|[+\-]\d\d:\d\d$/.test(value);
-  if (!hasTimezone) {
-    normalizedValue = `${value.replace(' ', 'T')}Z`;
-  }
-
-  const date = new Date(normalizedValue);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString();
 };
 
 export const Reminders = () => {
@@ -97,11 +81,11 @@ export const Reminders = () => {
   };
 
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-8 font-sans text-slate-900 dark:text-slate-100 transition-colors">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Reminders</h2>
-          <p className="text-slate-500">Create reminders mapped to your applications and backend schema.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Reminders</h2>
+          <p className="text-slate-500 dark:text-slate-400">Create reminders mapped to your applications and backend schema.</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -115,13 +99,13 @@ export const Reminders = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowSent(false)}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${!showSent ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200'}`}
+          className={`px-3 py-1.5 rounded-lg text-sm border ${!showSent ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700'}`}
         >
           Pending
         </button>
         <button
           onClick={() => setShowSent(true)}
-          className={`px-3 py-1.5 rounded-lg text-sm border ${showSent ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200'}`}
+          className={`px-3 py-1.5 rounded-lg text-sm border ${showSent ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700'}`}
         >
           Sent
         </button>
@@ -129,14 +113,14 @@ export const Reminders = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <div className="col-span-full text-center py-12 text-slate-500">Loading reminders...</div>
+          <div className="col-span-full text-center py-12 text-slate-500 dark:text-slate-400">Loading reminders...</div>
         ) : filteredReminders.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-slate-500 italic bg-white rounded-2xl border border-dashed border-slate-200">
+          <div className="col-span-full text-center py-12 text-slate-500 dark:text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
             No reminders for this filter.
           </div>
         ) : (
           filteredReminders.map((reminder) => (
-            <div key={reminder.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div key={reminder.id} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="p-2 rounded-lg bg-blue-50">
                   <Bell className="w-5 h-5 text-blue-600" />
@@ -145,11 +129,11 @@ export const Reminders = () => {
                   {reminder.is_sent ? 'sent' : 'pending'}
                 </span>
               </div>
-              <h3 className="font-bold text-lg text-slate-900 mb-3">{reminder.title}</h3>
-              <div className="space-y-2 text-sm text-slate-500">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 mb-3">{reminder.title}</h3>
+              <div className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  <span>{formatDateTime(reminder.remind_at)}</span>
+                  <span>{formatIndiaDateTime(reminder.remind_at)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4" />
@@ -163,19 +147,19 @@ export const Reminders = () => {
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="p-6 border-b flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Create Reminder</h3>
-              <button onClick={() => setShowAddModal(false)} className="p-1 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Create Reminder</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreate}>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Title</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Title</label>
                   <input
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100"
                     value={newReminder.title}
                     onChange={(e) => setNewReminder((prev) => ({ ...prev, title: e.target.value }))}
                     required
@@ -183,10 +167,10 @@ export const Reminders = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Remind At</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Remind At</label>
                   <input
                     type="datetime-local"
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100"
                     value={newReminder.remind_at}
                     onChange={(e) => setNewReminder((prev) => ({ ...prev, remind_at: e.target.value }))}
                     required
@@ -194,9 +178,9 @@ export const Reminders = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700">Application</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Application</label>
                   <select
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100"
                     value={newReminder.application_id}
                     onChange={(e) => setNewReminder((prev) => ({ ...prev, application_id: e.target.value }))}
                     required
@@ -210,8 +194,8 @@ export const Reminders = () => {
                   </select>
                 </div>
               </div>
-              <div className="p-6 border-t bg-slate-50/50 flex gap-3">
-                <button type="button" className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium" onClick={() => setShowAddModal(false)}>
+              <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 flex gap-3">
+                <button type="button" className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50" disabled={isSubmitting}>
