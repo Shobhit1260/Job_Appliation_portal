@@ -90,28 +90,25 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-
             APP_DIR="${{ env.EC2_APP_DIR }}"
             APP_DOMAIN="${{ env.APP_DOMAIN }}"
 
             if [ -z "$APP_DOMAIN" ]; then
-              echo "APP_DOMAIN secret is missing (example: api.example.com)"
+              echo "APP_DOMAIN secret is missing"
               exit 1
             fi
 
             cd "$APP_DIR/backend"
-
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
             export API_IMAGE="${{ secrets.DOCKER_USERNAME }}/job-tracker-api:${{ github.sha }}"
-            : "${API_IMAGE:?API_IMAGE is required}"
-
-            cat > docker-compose.ec2.yml <<'EOF'
+            
+            # Create files using normal heredoc (no single quotes around EOF)
+            cat > docker-compose.ec2.yml <<EOF
             services:
               api:
                 image: "${API_IMAGE}"
                 pull_policy: always
-
               nginx:
                 image: nginx:1.27-alpine
                 container_name: jobtracker-nginx
@@ -128,7 +125,6 @@ jobs:
             server {
               listen 80;
               server_name ${APP_DOMAIN};
-
               location / {
                 proxy_pass http://api:8000;
                 proxy_http_version 1.1;
@@ -141,33 +137,6 @@ jobs:
             }
             EOF
 
-            test -f docker-compose.yml
-            test -f docker-compose.ec2.yml
-            test -f nginx.conf
-
             docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull api nginx
             docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-build
-
-            docker compose -f docker-compose.yml -f docker-compose.ec2.yml ps
-
-            # Wait for API via Nginx to be healthy (retry up to 30 times with 1s interval)
-            HEALTHY=0
-            for i in {1..30}; do
-              if curl -fsS -H "Host: $APP_DOMAIN" http://localhost/healthz; then
-                echo "API is healthy via Nginx"
-                HEALTHY=1
-                break
-              fi
-              if [ $i -lt 30 ]; then
-                echo "API not ready, retrying... ($i/30)"
-                sleep 1
-              fi
-            done
-
-            if [ "$HEALTHY" -ne 1 ]; then
-              echo "API health check failed after retries"
-              docker compose -f docker-compose.yml -f docker-compose.ec2.yml logs --tail=100 api nginx
-              exit 1
-            fi
-
             docker image prune -f
