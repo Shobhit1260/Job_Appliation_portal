@@ -73,34 +73,32 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             
             export API_IMAGE="${{ secrets.DOCKER_USERNAME }}/job-tracker-api:${{ github.sha }}"
-            
-            cat <<EOF > docker-compose.ec2.yml
-            services:
-              api:
-                image: "$API_IMAGE"
-                pull_policy: always
-              nginx:
-                image: nginx:1.27-alpine
-                container_name: jobtracker-nginx
-                depends_on:
-                  api:
-                    condition: service_started
-                ports:
-                  - "80:80"
-                volumes:
-                  - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-            EOF
 
-            cat <<EOF > nginx.conf
-            server {
-              listen 80;
-              server_name ${{ env.APP_DOMAIN }};
-              location / {
-                proxy_pass http://api:8000;
-                proxy_set_header Host \$host;
-              }
-            }
-            EOF
+            printf '%s\n' \
+              'services:' \
+              '  api:' \
+              "    image: \"$API_IMAGE\"" \
+              '    pull_policy: always' \
+              '  nginx:' \
+              '    image: nginx:1.27-alpine' \
+              '    container_name: jobtracker-nginx' \
+              '    depends_on:' \
+              '      api:' \
+              '        condition: service_started' \
+              '    ports:' \
+              '      - "80:80"' \
+              '    volumes:' \
+              '      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro' > docker-compose.ec2.yml
+
+            printf '%s\n' \
+              'server {' \
+              '  listen 80;' \
+              "  server_name ${{ env.APP_DOMAIN }};" \
+              '  location / {' \
+              '    proxy_pass http://api:8000;' \
+              '    proxy_set_header Host $host;' \
+              '  }' \
+              '}' > nginx.conf
 
             docker compose -f docker-compose.yml -f docker-compose.ec2.yml pull api nginx
             docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-build
