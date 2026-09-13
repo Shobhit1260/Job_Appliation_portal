@@ -62,56 +62,99 @@ def _get_oauth_client(provider: str):
         )
     return client
 
-
 @router.post("/register")
 def register(user: auth.Create_user, db: Session = Depends(get_db)):
     existing_user = (
-        db.query(models.User).filter(models.User.email == user.email).first()
+        db.query(models.User)
+        .filter(models.User.email == user.email)
+        .first()
     )
-    if existing_user:
-        raise HTTPException(
-            status_code=400, detail="User with this email already exists."
-        )
 
+    if existing_user:
+        if not existing_user.email_verified:
+            verification_code = utils.create_otp_code()
+
+            existing_user.email_verification_code_hash = (
+                utils.hash_token(verification_code)
+            )
+
+            existing_user.email_verification_expires_at = (
+                datetime.utcnow()
+                + timedelta(
+                    minutes=settings.EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES
+                )
+            )
+
+            db.commit()
+
+            # Send new verification code
+            sent = (
+                is_email_enabled()
+                and _send_verification_code(
+                    existing_user.email,
+                    verification_code,
+                )
+            )
+
+            if sent:
+                return {
+                    "message": (
+                        "This email is already registered but not verified. "
+                        "A new verification code has been sent to your email."
+                    )
+                }
+
+        # Existing account IS verified
+        return {
+            "message": "An account with this email already exists."
+        }
+
+    # CASE 2: New user
     hashed_pw = utils.hash_password(user.password)
+
     verification_code = utils.create_otp_code()
+
     new_user = models.User(
         name=user.name,
         email=user.email,
         password=hashed_pw,
         email_verified=False,
-        email_verification_code_hash=utils.hash_token(verification_code),
-        email_verification_expires_at=datetime.utcnow()
-        + timedelta(minutes=settings.EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES),
+        email_verification_code_hash=utils.hash_token(
+            verification_code
+        ),
+        email_verification_expires_at=(
+            datetime.utcnow()
+            + timedelta(
+                minutes=settings.EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES
+            )
+        ),
     )
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    sent = is_email_enabled() and _send_verification_code(
-        new_user.email, verification_code
+    # Send verification email
+    sent = (
+        is_email_enabled()
+        and _send_verification_code(
+            new_user.email,
+            verification_code,
+        )
     )
+
     if sent:
-        return {"message": "User created. Verification code sent to your email."}
-
-    smtp_host = (
-        settings.SMTP_HOST.strip().lower()
-        if isinstance(settings.SMTP_HOST, str)
-        else ""
-    )
-    if smtp_host in {"mailpit", "localhost", "127.0.0.1"}:
         return {
-            "message": "User created. Use the dev verification code below.",
-            "dev_verification_code": verification_code,
+            "message": (
+                "User created. Verification code sent to your email."
+            )
         }
-
+    
     return {
         "message": (
-            "User created, but the verification email could not be sent. "
-            "Please check SMTP configuration or resend the verification email."
-        ),
+            "User created, but the verification email could not be sent."
+        )
     }
-
 
 @router.post("/login")
 def login(user: auth.Login_user, db: Session = Depends(get_db)):
