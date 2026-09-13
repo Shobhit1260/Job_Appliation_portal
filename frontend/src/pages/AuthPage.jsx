@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Briefcase,
@@ -16,16 +16,29 @@ import { toast } from "sonner";
 import { getErrorMessage } from "../utils/errorHandler";
 
 export const AuthPage = () => {
-  const [mode, setMode] = useState("login"); // login, signup, otp, verify-email
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get("token") || "";
+  const [mode, setMode] = useState(
+    resetToken ? "reset-password" : "login"
+  ); // login, forgot-password, reset-password, signup, otp, verify-email
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === "/reset-password") {
+      setMode("reset-password");
+    } else {
+      setMode("login");
+    }
+  }, [location.pathname, resetToken]);
 
   useEffect(() => {
     if (searchParams.get("session") === "expired") {
@@ -36,7 +49,7 @@ export const AuthPage = () => {
 
   const handleOAuthLogin = (provider) => {
     const baseUrl = (
-      import.meta.env.VITE_API_URL || "http://localhost:8000"
+      import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
     ).replace(/\/$/, "");
     window.location.href = `${baseUrl}/auth/oauth/${provider}/login`;
   };
@@ -51,6 +64,48 @@ export const AuthPage = () => {
       }
       setMode("otp");
       toast.success(data?.message || "OTP sent to your email");
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const { data } = await authApi.forgotPassword({ email });
+      toast.success(data?.message || "Password reset email sent");
+      if (data?.raw_token) {
+        navigate(`/reset-password?token=${encodeURIComponent(data.raw_token)}`);
+      } else {
+        setMode("login");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data } = await authApi.resetPassword({
+        token: resetToken,
+        new_password: password,
+      });
+      toast.success(data?.message || "Password reset successful");
+      setPassword("");
+      setConfirmPassword("");
+      navigate("/login", { replace: true });
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -173,6 +228,7 @@ export const AuthPage = () => {
                       <button
                         type="button"
                         className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                        onClick={() => setMode("forgot-password")}
                       >
                         Forgot password?
                       </button>
@@ -228,6 +284,124 @@ export const AuthPage = () => {
                       Sign up
                     </button>
                   </p>
+                </form>
+              </motion.div>
+            )}
+
+            {mode === "reset-password" && (
+              <motion.div
+                key="reset-password"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="p-8"
+              >
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    Set a New Password
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Enter and confirm your new password below.
+                  </p>
+                </div>
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        minLength={8}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                      <input
+                        type="password"
+                        minLength={8}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm disabled:opacity-50"
+                    type="submit"
+                    disabled={isLoading || !resetToken}
+                  >
+                    {isLoading ? "Resetting..." : "Reset Password"}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                    onClick={() => navigate("/login")}
+                  >
+                    Back to Login
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {mode === "forgot-password" && (
+              <motion.div
+                key="forgot-password"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="p-8"
+              >
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    Forgot Password?
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Enter your email and we'll send you a password reset link.
+                  </p>
+                </div>
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                      <input
+                        type="email"
+                        placeholder="name@example.com"
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-all shadow-sm disabled:opacity-50"
+                    type="submit"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Sending..." : "Send Reset Link"}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                    onClick={() => setMode("login")}
+                  >
+                    Back to Login
+                  </button>
                 </form>
               </motion.div>
             )}
@@ -374,9 +548,7 @@ export const AuthPage = () => {
                   Verify your email
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                  Enter the verification code for <strong>{email}</strong>. In
-                  local development, the backend returns a dev code when SMTP is
-                  not configured.
+                  Enter the verification code for <strong>{email}</strong>.
                 </p>
                 <form
                   onSubmit={handleVerifyEmail}

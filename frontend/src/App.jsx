@@ -22,6 +22,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<AuthPage />} />
+          <Route path="/reset-password" element={<AuthPage />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
